@@ -64,6 +64,8 @@ public class XmlNSDescriptorImpl implements XmlNSDescriptorEx,Validator<XmlDocum
   @NonNls static final String ATTRIBUTE_TAG_NAME = "attribute";
   @NonNls static final String COMPLEX_TYPE_TAG_NAME = "complexType";
   @NonNls static final String SEQUENCE_TAG_NAME = "sequence";
+  @NonNls static final String ALTERNATIVE_TAG_NAME = "alternative";
+  @NonNls static final String ASSERT_TAG_NAME = "assert";
   private static final Logger LOG = Logger.getInstance("#com.intellij.xml.impl.schema.XmlNSDescriptorImpl");
   @NonNls private static final Set<String> STD_TYPES = new HashSet<>();
   private static final Set<String> UNDECLARED_STD_TYPES = new HashSet<>();
@@ -77,6 +79,7 @@ public class XmlNSDescriptorImpl implements XmlNSDescriptorEx,Validator<XmlDocum
   private String myTargetNamespace;
   private volatile Object[] dependencies;
   private MultiMap<String,XmlTag> mySubstitutions;
+  private MultiMap<String,XmlTag> myAlternatives;
 
   public XmlNSDescriptorImpl(XmlFile file) {
     init(file.getDocument());
@@ -540,6 +543,11 @@ public class XmlNSDescriptorImpl implements XmlNSDescriptorEx,Validator<XmlDocum
   public TypeDescriptor getTypeDescriptor(XmlTag descriptorTag) {
     String type = descriptorTag.getAttributeValue("type");
 
+    XmlTag[] alternatives = descriptorTag.findSubTags("alternative", XmlUtil.XML_SCHEMA_URI);
+    if (alternatives.length > 0) {
+      findAlternativeTypeDescriptor(type, descriptorTag, alternatives);
+    }
+
     if (type != null) {
       return getTypeDescriptor(type, descriptorTag);
     }
@@ -581,6 +589,11 @@ public class XmlNSDescriptorImpl implements XmlNSDescriptorEx,Validator<XmlDocum
     String namespace = context.getNamespaceByPrefix(XmlUtil.findPrefixByQualifiedName(qname));
     String localName = XmlUtil.findLocalNameByQualifiedName(qname);
     return findTypeDescriptorImpl(myTag, localName, namespace.isEmpty() ? getDefaultNamespace() : namespace);
+  }
+
+  @Nullable
+  private TypeDescriptor findAlternativeTypeDescriptor(final String qname, XmlTag context, XmlTag[] alternatives) {
+    return null;
   }
 
   @Override

@@ -33,6 +33,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author Mike
@@ -207,9 +209,28 @@ public class XmlElementDescriptorImpl extends XsdEnumerationDescriptor<XmlTag>
           if (descriptor != nsDescriptor && descriptor instanceof XmlNSTypeDescriptorProvider) {
             TypeDescriptor typeDescriptor = ((XmlNSTypeDescriptorProvider)descriptor).getTypeDescriptor(myDescriptorTag);
             if (typeDescriptor != null && typeDescriptor.getDeclaration() != type.getDeclaration()) {
-              return typeDescriptor;
+              type = typeDescriptor;
             }
           }
+      }
+    }
+
+    final XmlTag[] typeAlternatives = myDescriptorTag.findSubTags("alternative", XmlUtil.XML_SCHEMA_URI);
+    if (typeAlternatives.length != 0) {
+      XmlTag tag = (XmlTag)context;
+      final Pattern pattern = Pattern.compile("^@([\\S=]*?)\\s+=\\s+\'(.*?)\'$");
+      //Fixme: Stupid implementation.
+      for (XmlTag alternative : typeAlternatives) {
+        final String test = alternative.getAttributeValue("test");
+        final Matcher match = pattern.matcher(test);
+        if (!match.matches()) continue;
+        final XmlAttribute attr = tag.getAttribute(match.group(1));
+        if (attr != null) {
+          if (attr.getValue().equals(match.group(2))) {
+            final String typename = alternative.getAttributeValue("type");
+            type = ((XmlNSTypeDescriptorProvider) nsDescriptor).getTypeDescriptor(typename, tag);
+          }
+        }
       }
     }
     return type;
