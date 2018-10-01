@@ -35,6 +35,16 @@ import com.intellij.psi.xml.XmlElementType;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.psi.xml.XmlText;
 import com.intellij.xml.util.XmlPsiUtil;
+import net.sf.saxon.expr.parser.Location;
+import net.sf.saxon.om.AtomicSequence;
+import net.sf.saxon.om.NamespaceBinding;
+import net.sf.saxon.om.NodeInfo;
+import net.sf.saxon.om.TreeInfo;
+import net.sf.saxon.pattern.NodeTest;
+import net.sf.saxon.trans.XPathException;
+import net.sf.saxon.tree.iter.AxisIterator;
+import net.sf.saxon.tree.util.FastStringBuffer;
+import net.sf.saxon.type.Type;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -185,5 +195,154 @@ public abstract class XmlElementImpl extends CompositePsiElement implements XmlE
   public void clearCaches() {
     super.clearCaches();
     putUserData(DO_NOT_VALIDATE, null);
+  }
+
+  @NotNull
+  public final NodeInfo getNodeInfo() {
+    if (myNodeInfo == null) {
+      myNodeInfo = generateNodeInfo();
+    }
+    return myNodeInfo;
+  }
+
+  protected NodeInfo myNodeInfo;
+
+  @NotNull
+  protected NodeInfo generateNodeInfo() {
+    return new XmlElementNodeInfo();
+  }
+
+  protected class XmlElementNodeInfo implements NodeInfo {
+
+    private String mySystemId;
+
+    @Override
+    public TreeInfo getTreeInfo() {
+      return null;
+    }
+
+    @Override
+    public int getNodeKind() {
+      XmlElementImpl instance = XmlElementImpl.this;
+      if (instance instanceof XmlTagImpl) {
+        return Type.ELEMENT;
+      } else if (instance instanceof XmlAttributeImpl) {
+        return Type.ATTRIBUTE;
+      } else if (instance instanceof XmlTextImpl) {
+        return Type.TEXT;
+      } else if (instance instanceof XmlCommentImpl) {
+        return Type.COMMENT;
+      } else if (instance instanceof XmlDocumentImpl) {
+        return Type.DOCUMENT;
+      } else if (instance instanceof XmlProcessingInstructionImpl) {
+        return Type.PROCESSING_INSTRUCTION;
+      }
+      return Type.NODE;
+    }
+
+    @Override
+    public void setSystemId(String systemId) {
+      mySystemId = systemId;
+    }
+
+    @Override
+    public String getSystemId() {
+      return mySystemId;
+    }
+
+    @Override
+    public Location saveLocation() {
+      return null;
+    }
+
+    @Override
+    public String getBaseURI() {
+      return null;
+    }
+
+    @Override
+    public int compareOrder(NodeInfo other) {
+      return 0;
+    }
+
+    @Override
+    public String getStringValue() {
+      return XmlElementImpl.this.getText();
+    }
+
+    @Override
+    public CharSequence getStringValueCS() {
+      return XmlElementImpl.this.getText();
+    }
+
+    @Override
+    public boolean hasFingerprint() {
+      return false;
+    }
+
+    @Override
+    public int getFingerprint() {
+      return 0;
+    }
+
+    @Override
+    public String getLocalPart() {
+      return null;
+    }
+
+    @Override
+    public String getURI() {
+      return null;
+    }
+
+    @Override
+    public String getDisplayName() {
+      return null;
+    }
+
+    @Override
+    public String getPrefix() {
+      return null;
+    }
+
+    @Override
+    public AtomicSequence atomize() throws XPathException {
+      return null;
+    }
+
+    @Override
+    public NodeInfo getParent() {
+      return null;
+    }
+
+    @Override
+    public AxisIterator iterateAxis(byte axisNumber, NodeTest nodeTest) {
+      return null;
+    }
+
+    @Override
+    public String getAttributeValue(String uri, String local) {
+      return null;
+    }
+
+    @Override
+    public NodeInfo getRoot() {
+      return null;
+    }
+
+    @Override
+    public boolean hasChildNodes() {
+      return false;
+    }
+
+    @Override
+    public void generateId(FastStringBuffer buffer) {
+
+    }
+
+    @Override
+    public NamespaceBinding[] getDeclaredNamespaces(NamespaceBinding[] buffer) {
+      return new NamespaceBinding[0];
+    }
   }
 }

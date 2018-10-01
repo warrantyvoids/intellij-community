@@ -18,6 +18,7 @@ package com.intellij.xml.impl.schema;
 import com.intellij.codeInsight.daemon.Validator;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.*;
+import com.intellij.psi.impl.source.xml.XmlTagImpl;
 import com.intellij.psi.meta.PsiWritableMetaData;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.xml.*;
@@ -26,6 +27,10 @@ import com.intellij.util.IncorrectOperationException;
 import com.intellij.xml.*;
 import com.intellij.xml.util.XmlEnumeratedValueReference;
 import com.intellij.xml.util.XmlUtil;
+import net.sf.saxon.sxpath.XPathDynamicContext;
+import net.sf.saxon.sxpath.XPathEvaluator;
+import net.sf.saxon.sxpath.XPathExpression;
+import net.sf.saxon.trans.XPathException;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -218,19 +223,39 @@ public class XmlElementDescriptorImpl extends XsdEnumerationDescriptor<XmlTag>
     final XmlTag[] typeAlternatives = myDescriptorTag.findSubTags("alternative", XmlUtil.XML_SCHEMA_URI);
     if (typeAlternatives.length != 0) {
       XmlTag tag = (XmlTag)context;
-      final Pattern pattern = Pattern.compile("^@([\\S=]*?)\\s+=\\s+\'(.*?)\'$");
-      //Fixme: Stupid implementation.
+      if (tag == null) return type;
+
+      XPathEvaluator evaluator = new XPathEvaluator();
+      TypeDescriptor defaultAlternative = null;
+      boolean foundMatch = false;
+      //TODO: Move this implementation to a less ad-hoc place.
       for (XmlTag alternative : typeAlternatives) {
         final String test = alternative.getAttributeValue("test");
-        final Matcher match = pattern.matcher(test);
-        if (!match.matches()) continue;
-        final XmlAttribute attr = tag.getAttribute(match.group(1));
-        if (attr != null) {
-          if (attr.getValue().equals(match.group(2))) {
+        final String typeName = alternative.getAttributeValue("type");
+
+        if (typeName == null) continue;
+        if (test == null) {
+          final String typename = alternative.getAttributeValue("type");
+          defaultAlternative = ((XmlNSTypeDescriptorProvider) nsDescriptor).getTypeDescriptor(typename, tag);
+          continue;
+        }
+
+        try {
+          XPathExpression expression = evaluator.createExpression(test);
+          //TODO: Move these calls to the public API, but without any Saxon leakage.
+          XPathDynamicContext xpathContext = expression.createDynamicContext(((XmlTagImpl)tag).getNodeInfo());
+          if (expression.effectiveBooleanValue(xpathContext)) {
+            foundMatch = true;
             final String typename = alternative.getAttributeValue("type");
             type = ((XmlNSTypeDescriptorProvider) nsDescriptor).getTypeDescriptor(typename, tag);
+            break;
           }
+        } catch (XPathException ex) {
+          // Hmm.
         }
+      }
+      if (!foundMatch && defaultAlternative != null) {
+        type = defaultAlternative;
       }
     }
     return type;

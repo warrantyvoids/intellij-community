@@ -20,5 +20,19 @@
     <orderEntry type="module" module-name="intellij.regexp" exported="" />
     <orderEntry type="module" module-name="intellij.platform.lang" />
     <orderEntry type="library" name="xml-resolver" level="project" />
+    <orderEntry type="module-library">
+      <library name="Saxon-HE" type="repository">
+        <properties maven-id="net.sf.saxon:Saxon-HE:9.9.0-1" />
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/../../lib/Saxon-HE-9.9.0-1.jar!/" />
+        </CLASSES>
+        <JAVADOC>
+          <root url="jar://$MODULE_DIR$/../../lib/Saxon-HE-9.9.0-1-javadoc.jar!/" />
+        </JAVADOC>
+        <SOURCES>
+          <root url="jar://$MODULE_DIR$/../../lib/Saxon-HE-9.9.0-1-sources.jar!/" />
+        </SOURCES>
+      </library>
+    </orderEntry>
   </component>
 </module>

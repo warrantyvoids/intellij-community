@@ -49,6 +49,10 @@ import com.intellij.xml.index.XmlNamespaceIndex;
 import com.intellij.xml.util.XmlTagUtil;
 import com.intellij.xml.util.XmlUtil;
 import gnu.trove.THashMap;
+import net.sf.saxon.om.AxisInfo;
+import net.sf.saxon.om.NodeInfo;
+import net.sf.saxon.pattern.NodeTest;
+import net.sf.saxon.tree.iter.AxisIterator;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -1380,5 +1384,196 @@ public class XmlTagImpl extends XmlElementImpl implements XmlTag, HintedReferenc
     }
 
     public abstract TreeElement getFirstInserted();
+  }
+
+  @NotNull
+  @Override
+  protected NodeInfo generateNodeInfo() {
+    return new XmlTagNodeInfo();
+  }
+
+  protected class XmlTagNodeInfo extends XmlElementNodeInfo {
+    @Override
+    public String getLocalPart() {
+      return XmlTagImpl.this.getLocalName();
+    }
+
+    @Override
+    public String getURI() {
+      return XmlTagImpl.this.getNamespace();
+    }
+
+    @Override
+    public String getPrefix() {
+      return XmlTagImpl.this.getNamespacePrefix();
+    }
+
+    @Override
+    public AxisIterator iterateAxis(byte axisNumber, NodeTest nodeTest) {
+      switch (axisNumber) {
+        case AxisInfo.ATTRIBUTE:
+          final XmlAttribute[] allAttributes = XmlTagImpl.this.getAttributes();
+          return new AxisIterator() {
+            int currentId = -1;
+
+            @Override
+            public NodeInfo next() {
+              NodeInfo attributeNodeInfo;
+              do {
+                currentId++;
+                if (currentId >= allAttributes.length)
+                  return null;
+                final XmlAttribute attribute = allAttributes[currentId];
+                if (attribute == null) throw new IllegalStateException("Something went wrong. Null attributes!!!!");
+                attributeNodeInfo = ((XmlAttributeImpl)attribute).getNodeInfo();
+              } while (!nodeTest.matchesNode(attributeNodeInfo));
+              return attributeNodeInfo;
+            }
+          };
+
+        case AxisInfo.CHILD:
+          final XmlTag[] children = XmlTagImpl.this.getSubTags();
+          return new AxisIterator() {
+            int currentId = -1;
+            @Override
+            public NodeInfo next() {
+              NodeInfo tagNodeInfo;
+              do {
+                currentId++;
+                if (currentId >= children.length)
+                  return null;
+                final XmlTag attribute = children[currentId];
+                if (attribute == null) throw new IllegalStateException("Something went wrong. Null attributes!!!!");
+                tagNodeInfo = ((XmlAttributeImpl)attribute).getNodeInfo();
+              } while (!nodeTest.matchesNode(tagNodeInfo));
+              return tagNodeInfo;
+            }
+          };
+
+        case AxisInfo.ANCESTOR_OR_SELF:
+        case AxisInfo.ANCESTOR:
+          XmlTagImpl startingNode;
+          if (axisNumber == AxisInfo.ANCESTOR_OR_SELF) {
+            startingNode = XmlTagImpl.this;
+          } else { // axisNumber == AxisInfo.ANCESTOR
+            startingNode = (XmlTagImpl)XmlTagImpl.this.getParentTag();
+          }
+
+          return new AxisIterator() {
+            XmlTagImpl current = startingNode;
+            @Override
+            public NodeInfo next() {
+              if (current == null) return null;
+              NodeInfo ancesterInfo = current.getNodeInfo();
+              while (!nodeTest.matchesNode(ancesterInfo)) {
+                current = (XmlTagImpl)current.getParentTag();
+                if (current != null) {
+                  ancesterInfo = current.getNodeInfo();
+                } else {
+                  return null;
+                }
+              }
+              return ancesterInfo;
+            }
+          };
+
+        case AxisInfo.DESCENDANT_OR_SELF:
+        case AxisInfo.DESCENDANT:
+          XmlElementImpl start = XmlTagImpl.this;
+          if (axisNumber == AxisInfo.DESCENDANT) {
+            start = (XmlElementImpl)start.getFirstChild();
+          }
+          final XmlElementImpl startFinal = start;
+
+          return new AxisIterator() {
+            XmlElementImpl endingNode = XmlTagImpl.this;
+            XmlElementImpl current = startFinal;
+            @Override
+            public NodeInfo next() {
+              NodeInfo info = current.getNodeInfo();
+              while (!nodeTest.matchesNode(info)){
+                moveForward();
+                if (current == null) return null;
+                info = current.getNodeInfo();
+              }
+              return info;
+            }
+
+            private void moveForward() {
+              if (current == null) return;
+              XmlElementImpl firstChild = (XmlElementImpl)current.getFirstChild();
+              if (firstChild != null) {
+                current = firstChild;
+                return;
+              }
+              //No more children, let's start with siblings.
+              XmlElementImpl sibling = (XmlElementImpl)current.getNextSibling();
+              if (sibling != null) {
+                current = sibling;
+              }
+              //No more siblings, lets move to the parent.
+              do {
+                current = (XmlElementImpl)current.getParent();
+                sibling = (XmlElementImpl)current.getNextSibling();
+              } while (sibling == null && current != endingNode);
+              if (current == endingNode) current = null;
+              current = sibling;
+            }
+          };
+
+        case AxisInfo.PARENT:
+          return new AxisIterator() {
+            XmlElementImpl parent = (XmlElementImpl)XmlTagImpl.this.getParent();
+            @Override
+            public NodeInfo next() {
+              if (parent == null) return null;
+              final NodeInfo parentInfo = parent.getNodeInfo();
+              parent = null;
+              if (!nodeTest.matchesNode(parentInfo)) return null;
+              return parentInfo;
+            }
+          };
+        case AxisInfo.FOLLOWING:
+          break;
+        case AxisInfo.PRECEDING_OR_ANCESTOR:
+          break;
+
+        case AxisInfo.FOLLOWING_SIBLING:
+        case AxisInfo.PRECEDING_SIBLING:
+          Function<XmlElementImpl,XmlElementImpl> findNext;
+          if (axisNumber == AxisInfo.FOLLOWING_SIBLING) {
+            findNext = (XmlElementImpl elem) -> (XmlElementImpl)elem.getNextSibling();
+          } else { //axisNumber == AxisInfo.PRECEDING_SIBLING
+            findNext = (XmlElementImpl elem) -> (XmlElementImpl)elem.getPrevSibling();
+          }
+
+          return new AxisIterator() {
+            XmlElementImpl current = XmlTagImpl.this;
+            @Override
+            public NodeInfo next() {
+              NodeInfo nodeInfo;
+              do {
+                current = current != null ? findNext.fun(current) : null;
+                nodeInfo = current != null ? current.getNodeInfo() : null;
+              } while (nodeInfo != null && nodeTest.matchesNode(nodeInfo));
+              return nodeInfo;
+            }
+          };
+        case AxisInfo.NAMESPACE:
+          break;
+      }
+
+      throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    @Override
+    public String getAttributeValue(String uri, String local) {
+       return XmlTagImpl.this.getAttributeValue(local, uri);
+    }
+
+    @Override
+    public boolean hasChildNodes() {
+      return XmlTagImpl.this.getChildren().length > 0;
+    }
   }
 }

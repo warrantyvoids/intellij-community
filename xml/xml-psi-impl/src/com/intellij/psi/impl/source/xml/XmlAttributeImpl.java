@@ -49,6 +49,10 @@ import com.intellij.xml.XmlAttributeDescriptor;
 import com.intellij.xml.XmlElementDescriptor;
 import com.intellij.xml.util.XmlUtil;
 import gnu.trove.TIntArrayList;
+import net.sf.saxon.om.AtomicSequence;
+import net.sf.saxon.om.NodeInfo;
+import net.sf.saxon.trans.XPathException;
+import net.sf.saxon.value.StringValue;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -470,6 +474,44 @@ public class XmlAttributeImpl extends XmlElementImpl implements XmlAttribute, Hi
       myGapDisplayStarts = gapDisplayStarts;
       myGapPhysicalStarts = gapPhysicalStarts;
       myValueTextRange = valueTextRange;
+    }
+  }
+
+  @NotNull
+  @Override
+  protected NodeInfo generateNodeInfo() {
+    return new XmlAttributeNodeInfo();
+  }
+
+  protected class XmlAttributeNodeInfo extends XmlElementNodeInfo {
+    @Override
+    public String getStringValue() {
+      return XmlAttributeImpl.this.getValue();
+    }
+
+    @Override
+    public CharSequence getStringValueCS() {
+      return XmlAttributeImpl.this.getValue();
+    }
+
+    @Override
+    public AtomicSequence atomize() throws XPathException {
+      return new StringValue(XmlAttributeImpl.this.getValue());
+    }
+
+    @Override
+    public String getLocalPart() {
+      return XmlAttributeImpl.this.getLocalName();
+    }
+
+    @Override
+    public String getURI() {
+      return XmlAttributeImpl.this.getNamespace();
+    }
+
+    @Override
+    public String getPrefix() {
+      return XmlAttributeImpl.this.getNamespacePrefix();
     }
   }
 }
